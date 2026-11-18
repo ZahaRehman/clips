@@ -1,0 +1,104 @@
+services:
+  redis:
+    image: redis:7-alpine
+    # No host port publish — avoids clash with local Redis on :6379.
+    # API/worker reach it at redis:6379 on the Compose network.
+
+  api:
+    build: ./services/api
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      DATABASE_URL: sqlite+aiosqlite:////data/cliping.db
+      REDIS_URL: redis://redis:6379/0
+      WHISPER_MODEL_DIR: /models/whisper
+      FONTS_DIR: /app/app/assets/fonts
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+      - ./models:/models
+    depends_on:
+      - redis
+
+  worker:
+    build: ./services/api
+    command: arq app.worker.WorkerSettings
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      DATABASE_URL: sqlite+aiosqlite:////data/cliping.db
+      REDIS_URL: redis://redis:6379/0
+      WHISPER_MODEL_DIR: /models/whisper
+      FONTS_DIR: /app/app/assets/fonts
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/data
+      - ./models:/models
+    depends_on:
+      - redis
+
+  renderer:
+    build: ./services/api
+    command: arq app.worker.RenderSettings
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      DATABASE_URL: sqlite+aiosqlite:////data/cliping.db
+      REDIS_URL: redis://redis:6379/0
+      WHISPER_MODEL_DIR: /models/whisper
+      FONTS_DIR: /app/app/assets/fonts
+    volumes:
+      - ./data:/data
+      - ./models:/models
+    depends_on:
+      - redis
+
+  publisher:
+    build: ./services/api
+    command: arq app.worker.PublishSettings
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      DATABASE_URL: sqlite+aiosqlite:////data/cliping.db
+      REDIS_URL: redis://redis:6379/0
+      WHISPER_MODEL_DIR: /models/whisper
+      FONTS_DIR: /app/app/assets/fonts
+    volumes:
+      - ./data:/data
+      - ./models:/models
+    depends_on:
+      - redis
+
+  fetcher:
+    build: ./services/api
+    command: arq app.fetcher.FetcherSettings
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      DATABASE_URL: sqlite+aiosqlite:////data/cliping.db
+      REDIS_URL: redis://redis:6379/0
+      WHISPER_MODEL_DIR: /models/whisper
+      FONTS_DIR: /app/app/assets/fonts
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/data
+      - ./models:/models
+    depends_on:
+      - redis
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      CLIPING_API_URL: http://api:8000
+      CLIPING_API_TOKEN: ${API_TOKEN:-}
+    depends_on:
+      - api

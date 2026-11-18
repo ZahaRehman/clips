@@ -1,0 +1,48 @@
+# Optional Postgres. SQLite stays the default in docker-compose.yml.
+#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up --build
+# Change the password before any host that is not only you.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cliping
+      POSTGRES_PASSWORD: cliping
+      POSTGRES_DB: cliping
+    volumes:
+      - cliping_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cliping -d cliping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cliping:cliping@postgres:5432/cliping
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cliping:cliping@postgres:5432/cliping
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  renderer:
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cliping:cliping@postgres:5432/cliping
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  publisher:
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cliping:cliping@postgres:5432/cliping
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  cliping_pg:
